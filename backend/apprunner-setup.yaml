@@ -1,0 +1,58 @@
+# App Runner service definition
+# Used when creating the service via AWS CLI (one-time setup)
+# Replace ACCOUNT_ID with your 12-digit AWS account number
+
+version: 1.0
+runtime: python311
+
+# Since we deploy via Docker/ECR, this file is only used for
+# managed-runtime source deployments. For ECR-based deploys (recommended),
+# configure the service in the App Runner console or via CLI below.
+
+# ── One-time CLI setup commands ───────────────────────────────────────────────
+# 1. Create ECR repo:
+#    aws ecr create-repository --repository-name aquire-backend --region ap-south-1
+#
+# 2. Create App Runner service (ECR-based, auto-deploy on new image):
+#    aws apprunner create-service \
+#      --service-name aquire-backend \
+#      --source-configuration '{
+#        "ImageRepository": {
+#          "ImageIdentifier": "ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/aquire-backend:latest",
+#          "ImageConfiguration": {
+#            "Port": "8000",
+#            "RuntimeEnvironmentVariables": {
+#              "PYTHONUNBUFFERED": "1"
+#            }
+#          },
+#          "ImageRepositoryType": "ECR"
+#        },
+#        "AutoDeploymentsEnabled": true,
+#        "AuthenticationConfiguration": {
+#          "AccessRoleArn": "arn:aws:iam::ACCOUNT_ID:role/AppRunnerECRAccessRole"
+#        }
+#      }' \
+#      --instance-configuration '{"Cpu":"1 vCPU","Memory":"2 GB"}' \
+#      --region ap-south-1
+#
+# 3. Add all env vars (AWS keys, Cognito, DynamoDB, etc.) in the App Runner
+#    console under Configuration → Environment variables.
+#    These replace the backend/.env file in production.
+#
+# 4. Grab the service ARN from:
+#    aws apprunner list-services --region ap-south-1
+#    Add it as GitHub secret: APPRUNNER_SERVICE_ARN
+#
+# NOTE: App Runner needs an IAM role to pull from ECR.
+# If it doesn't exist, create it:
+#    aws iam create-role --role-name AppRunnerECRAccessRole \
+#      --assume-role-policy-document '{
+#        "Version":"2012-10-17",
+#        "Statement":[{
+#          "Effect":"Allow",
+#          "Principal":{"Service":"build.apprunner.amazonaws.com"},
+#          "Action":"sts:AssumeRole"
+#        }]
+#      }'
+#    aws iam attach-role-policy --role-name AppRunnerECRAccessRole \
+#      --policy-arn arn:aws:iam::aws:policy/service-role/AWSAppRunnerServicePolicyForECRAccess

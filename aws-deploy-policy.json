@@ -1,0 +1,51 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ECRAuth",
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
+    },
+    {
+      "Sid": "ECRPush",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage",
+        "ecr:PutImage",
+        "ecr:InitiateLayerUpload",
+        "ecr:UploadLayerPart",
+        "ecr:CompleteLayerUpload"
+      ],
+      "Resource": "arn:aws:ecr:ap-south-1:ACCOUNT_ID:repository/aquire-backend"
+    },
+    {
+      "Sid": "AppRunnerDeploy",
+      "Effect": "Allow",
+      "Action": "apprunner:StartDeployment",
+      "Resource": "arn:aws:apprunner:ap-south-1:ACCOUNT_ID:service/aquire-backend/*"
+    },
+    {
+      "Sid": "S3FrontendDeploy",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:ListBucket",
+        "s3:GetObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::aquire-frontend",
+        "arn:aws:s3:::aquire-frontend/*"
+      ]
+    },
+    {
+      "Sid": "CloudFrontInvalidate",
+      "Effect": "Allow",
+      "Action": "cloudfront:CreateInvalidation",
+      "Resource": "arn:aws:cloudfront::ACCOUNT_ID:distribution/DISTRIBUTION_ID"
+    }
+  ]
+}
