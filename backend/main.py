@@ -151,7 +151,7 @@ class StudentProfilePayload(BaseModel):
     experience_level: Optional[str] = Field(default=None, max_length=100)
 
 class ChecklistPayload(BaseModel):
-    checklist: List[str] = Field(default_factory=list, max_length=500)
+    checklist: List[dict] = Field(default_factory=list, max_length=500)
 
 class TracksPayload(BaseModel):
     tracks: List[dict] = Field(default_factory=list, max_length=100)

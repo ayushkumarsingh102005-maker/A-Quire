@@ -122,8 +122,11 @@ export default function UnifiedLearning() {
     const [gazeState, setGazeState] = useState("focused");
     const [heatmapDots, setHeatmapDots] = useState([]);
     const [ghostMessage, setGhostMessage] = useState(null); // { text, type } | null
+    const [isSpeaking, setIsSpeaking] = useState(false);
+    const [hasUnread, setHasUnread] = useState(false);
 
     const videoRef = useRef(null);
+    const audioRef = useRef(null);
     const chatHistoryRef = useRef(chatHistory);
     const chatBottomRef = useRef(null);
     const chatInputRef = useRef(null);               // chat input field
@@ -145,16 +148,38 @@ export default function UnifiedLearning() {
     }, [chatHistory]);
 
 
-    // Play Polly audio
-    const playAudioResponse = async (text) => {
+    // Play Polly audio — tracks speaking state, clears ghost overlay when done
+    const playAudioResponse = useCallback(async (text) => {
         try {
+            // Stop any currently playing audio first
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current = null;
+            }
             const audioBlob = await synthesizeSpeech(text);
             const audioUrl = URL.createObjectURL(audioBlob);
-            new Audio(audioUrl).play();
+            const audio = new Audio(audioUrl);
+            audioRef.current = audio;
+            setIsSpeaking(true);
+            audio.onended = () => {
+                setIsSpeaking(false);
+                URL.revokeObjectURL(audioUrl);
+                audioRef.current = null;
+                // Linger ghost 2s after speech ends
+                setTimeout(() => setGhostMessage(null), 2000);
+            };
+            audio.onerror = () => {
+                setIsSpeaking(false);
+                URL.revokeObjectURL(audioUrl);
+                audioRef.current = null;
+            };
+            const p = audio.play();
+            if (p) p.catch(e => { console.warn("[Audio] Autoplay blocked:", e); setIsSpeaking(false); });
         } catch (e) {
+            setIsSpeaking(false);
             console.warn("Audio synthesis skipped:", e);
         }
-    };
+    }, []);
 
     // Capture screen as base64 JPEG (skips <video> elements)
     const captureScreen = useCallback(async () => {
@@ -211,7 +236,8 @@ export default function UnifiedLearning() {
                 }]);
                 // Show AI ghost
                 setGhostMessage({ text: msg, type: state });
-                setTimeout(() => setGhostMessage(null), 8000);
+                setHasUnread(true);
+                setTimeout(() => setGhostMessage(null), 14000); // fallback if audio fails
                 playAudioResponse(msg);
             }
         } catch (e) {
@@ -238,7 +264,9 @@ export default function UnifiedLearning() {
                     timestamp: new Date().toISOString()
                 }]);
                 setGhostMessage({ text: fallbackText, type: state });
-                setTimeout(() => setGhostMessage(null), 8000);
+                setHasUnread(true);
+                setTimeout(() => setGhostMessage(null), 14000);
+                playAudioResponse(fallbackText);
             }
         } finally {
             setIsAiThinking(false);
@@ -425,6 +453,8 @@ export default function UnifiedLearning() {
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 @keyframes heatDot { 0% { transform: scale(0) translate(-50%,-50%); opacity: 0.8; } 40% { transform: scale(1) translate(-50%,-50%); opacity: 0.55; } 100% { transform: scale(1.4) translate(-50%,-50%); opacity: 0; } }
                 @keyframes gazeGlow { 0%,100% { box-shadow: 0 0 0 0 var(--gaze-color,transparent); } 50% { box-shadow: 0 0 0 6px transparent; } }
+                @keyframes wave { 0% { transform: scaleY(0.35); } 100% { transform: scaleY(1); } }
+                @keyframes ghostIn { from { opacity: 0; transform: translateY(16px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
             `}</style>
 
             {/* ── HEATMAP OVERLAY ── */}
@@ -443,6 +473,80 @@ export default function UnifiedLearning() {
                     }} />
                 ))}
             </div>
+
+            {/* ── KIRO GHOST OVERLAY — rendered while AI is speaking or message is fresh ── */}
+            {ghostMessage && (
+                <div style={{
+                    position: "fixed",
+                    bottom: 148,
+                    right: 20,
+                    width: 320,
+                    background: "rgba(8,8,8,0.96)",
+                    backdropFilter: "blur(20px)",
+                    WebkitBackdropFilter: "blur(20px)",
+                    border: `1px solid ${ghostMessage.type === "confused" ? "rgba(245,158,11,0.5)" : "rgba(239,68,68,0.5)"}`,
+                    borderRadius: 16,
+                    padding: "1rem 1.1rem",
+                    zIndex: 10000,
+                    boxShadow: `0 0 50px ${ghostMessage.type === "confused" ? "rgba(245,158,11,0.14)" : "rgba(239,68,68,0.14)"}, 0 24px 60px rgba(0,0,0,0.9)`,
+                    animation: "ghostIn 0.35s ease both",
+                }}>
+                    {/* Header */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.65rem" }}>
+                        <div style={{
+                            width: 34, height: 34, borderRadius: "50%",
+                            background: `linear-gradient(135deg, ${YELLOW}, ${ORANGE})`,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: "1rem", flexShrink: 0,
+                            boxShadow: isSpeaking ? `0 0 16px rgba(255,215,0,0.7)` : "none",
+                            animation: isSpeaking ? "pulse 1.2s infinite" : "none",
+                        }}>🤖</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: "0.73rem", fontWeight: 800, color: YELLOW, letterSpacing: "0.06em" }}>KIRO AI</div>
+                            <div style={{ fontSize: "0.63rem", color: "#666" }}>
+                                {isSpeaking
+                                    ? <span style={{ color: "#F59E0B" }}>◉ Speaking…</span>
+                                    : <span>{ghostMessage.type === "confused" ? "🤔 Confusion detected" : "🖱️ Distraction detected"}</span>
+                                }
+                            </div>
+                        </div>
+                        {/* Waveform bars while speaking */}
+                        {isSpeaking && (
+                            <div style={{ display: "flex", gap: 2.5, alignItems: "center", height: 18, flexShrink: 0 }}>
+                                {[0.4, 0.75, 1, 0.7, 0.45].map((h, i) => (
+                                    <div key={i} style={{
+                                        width: 3, borderRadius: 2,
+                                        background: YELLOW, opacity: 0.85,
+                                        height: `${h * 18}px`,
+                                        transformOrigin: "bottom",
+                                        animation: `wave ${0.5 + i * 0.07}s ${i * 0.05}s infinite alternate ease-in-out`,
+                                    }} />
+                                ))}
+                            </div>
+                        )}
+                        {/* Dismiss */}
+                        <button
+                            onClick={() => {
+                                setGhostMessage(null);
+                                setIsSpeaking(false);
+                                if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+                            }}
+                            style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "1.2rem", lineHeight: 1, paddingLeft: "0.3rem", flexShrink: 0 }}
+                        >×</button>
+                    </div>
+                    {/* Message text */}
+                    <p style={{ fontSize: "0.85rem", color: "#D8D8D8", lineHeight: 1.7, margin: 0 }}>
+                        {ghostMessage.text}
+                    </p>
+                    {/* Footer */}
+                    <div
+                        onClick={() => { setLeftTab("chat"); setHasUnread(false); }}
+                        style={{ marginTop: "0.7rem", fontSize: "0.7rem", color: "#555", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
+                    >
+                        <MessageSquare size={10} /> View full discussion →
+                    </div>
+                </div>
+            )}
 
             {/* ── TOPBAR ── */}
             <header style={{
@@ -573,15 +677,21 @@ export default function UnifiedLearning() {
                             { id: "video", label: "YouTube", icon: <Video size={13} /> },
                             { id: "chat", label: "Discussion", icon: <MessageSquare size={13} /> },
                         ].map(tab => (
-                            <div key={tab.id} onClick={() => setLeftTab(tab.id)} style={{
+                            <div key={tab.id} onClick={() => { setLeftTab(tab.id); if (tab.id === "chat") setHasUnread(false); }} style={{
                                 flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem",
                                 padding: "0.75rem 0", cursor: "pointer", fontSize: "0.82rem",
                                 fontWeight: leftTab === tab.id ? 700 : 500,
                                 color: leftTab === tab.id ? YELLOW : "#777",
                                 borderBottom: leftTab === tab.id ? `2px solid ${YELLOW}` : "2px solid transparent",
-                                transition: "all 0.2s"
+                                transition: "all 0.2s", position: "relative"
                             }}>
                                 {tab.icon} {tab.label}
+                                {tab.id === "chat" && hasUnread && (
+                                    <span style={{
+                                        width: 7, height: 7, background: ORANGE, borderRadius: "50%",
+                                        flexShrink: 0, animation: "pulse 1s infinite"
+                                    }} />
+                                )}
                             </div>
                         ))}
                     </div>

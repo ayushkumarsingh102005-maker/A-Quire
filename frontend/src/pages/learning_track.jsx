@@ -45,7 +45,7 @@ export default function LearningTrack() {
     const navigate = useNavigate();
     const { currentUser, userData, loading, signOut } = useAuth();
 
-    const account = userData?.profile || { name: "Student", category: "college" };
+    const account = { name: currentUser?.name || currentUser?.email || "", category: "college" };
     const catLabel = { school: "School", college: "College", fresher: "Fresher", working: "Working" };
 
     const [track, setTrack] = useState(null);
