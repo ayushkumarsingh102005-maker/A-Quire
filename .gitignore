@@ -28,6 +28,8 @@ Thumbs.db
 
 # ── Logs / Temp ───────────────────────────────────────────────────────────────
 *.log
+fix_encoding.py
+~$*.docx
 !backend/requirements.txt
 !frontend/README.md
 fix_heap.py
