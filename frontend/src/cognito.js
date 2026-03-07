@@ -47,6 +47,17 @@ export function cognitoConfirmSignUp(email, code) {
     });
 }
 
+// ── Resend Confirmation Code ──────────────────────────────────────────────────
+export function cognitoResendCode(email) {
+    return new Promise((resolve, reject) => {
+        const user = new CognitoUser({ Username: email, Pool: userPool });
+        user.resendConfirmationCode((err, result) => {
+            if (err) reject(err);
+            else resolve(result);
+        });
+    });
+}
+
 
 // ── Sign In ───────────────────────────────────────────────────────────────────
 export function cognitoSignIn(email, password) {

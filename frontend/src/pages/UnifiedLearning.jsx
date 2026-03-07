@@ -247,27 +247,17 @@ export default function UnifiedLearning() {
                 : "Wapas aa gaye! Chalo phir shuru karte hain — kahan atke the?";
             const emoji = state === "confused" ? "🤔" : "🖱️";
             
-            // Check if authentication error
-            if (e.message && e.message.includes("Authentication failed")) {
-                console.error("[Kiro] Authentication error - session may have expired");
-                setChatHistory(prev => [...prev, {
-                    id: `msg-${Date.now()}`,
-                    text: `⚠️ Your session has expired. Please refresh the page and log in again.`,
-                    sender: "kiro",
-                    timestamp: new Date().toISOString()
-                }]);
-            } else {
-                setChatHistory(prev => [...prev, {
-                    id: `msg-${Date.now()}`,
-                    text: `${emoji} ${fallbackText}`,
-                    sender: "kiro",
-                    timestamp: new Date().toISOString()
-                }]);
-                setGhostMessage({ text: fallbackText, type: state });
-                setHasUnread(true);
-                setTimeout(() => setGhostMessage(null), 14000);
-                playAudioResponse(fallbackText);
-            }
+            // Always show ghost overlay with fallback message
+            setChatHistory(prev => [...prev, {
+                id: `msg-${Date.now()}`,
+                text: `${emoji} ${fallbackText}`,
+                sender: "kiro",
+                timestamp: new Date().toISOString()
+            }]);
+            setGhostMessage({ text: fallbackText, type: state });
+            setHasUnread(true);
+            setTimeout(() => setGhostMessage(null), 14000);
+            playAudioResponse(fallbackText);
         } finally {
             setIsAiThinking(false);
         }
@@ -420,9 +410,17 @@ export default function UnifiedLearning() {
             setTimeout(() => setHeatmapDots(prev => prev.filter(d => d.id !== dot.id)), 3000);
         };
 
+        // ── Tab visibility: switching away = distracted ──
+        const handleVisibilityChange = () => {
+            if (document.hidden) {
+                fireKiroHintRef.current?.("distracted");
+            }
+        };
+
         document.addEventListener("mouseleave", handleMouseLeave);
         document.addEventListener("mouseenter", handleMouseEnter);
         document.addEventListener("click", handleClick);
+        document.addEventListener("visibilitychange", handleVisibilityChange);
         startCamera();
 
         return () => {
@@ -432,6 +430,7 @@ export default function UnifiedLearning() {
             document.removeEventListener("mouseleave", handleMouseLeave);
             document.removeEventListener("mouseenter", handleMouseEnter);
             document.removeEventListener("click", handleClick);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
         };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { cognitoSignIn, cognitoSignUp, cognitoConfirmSignUp } from "../cognito";
+import { cognitoSignIn, cognitoSignUp, cognitoConfirmSignUp, cognitoResendCode } from "../cognito";
 import { useAuth } from "../context/AuthContext";
 
 const YELLOW = "#FFD700";
@@ -189,6 +189,8 @@ function SignupPage({ onSwitch }) {
   // OTP confirmation step
   const [step, setStep] = useState("signup");  // "signup" | "confirm"
   const [otpCode, setOtpCode] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendMsg, setResendMsg] = useState("");
 
   useEffect(() => { const t = setTimeout(() => setMounted(true), 40); return () => clearTimeout(t); }, []);
 
@@ -217,6 +219,23 @@ function SignupPage({ onSwitch }) {
       setError(err.message || "Signup failed.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (resendCooldown > 0) return;
+    try {
+      await cognitoResendCode(form.email);
+      setResendMsg("Code resent — check your inbox (and spam folder).");
+      setResendCooldown(60);
+      const iv = setInterval(() => {
+        setResendCooldown(c => {
+          if (c <= 1) { clearInterval(iv); return 0; }
+          return c - 1;
+        });
+      }, 1000);
+    } catch (err) {
+      setResendMsg(err.message || "Failed to resend code.");
     }
   };
 
@@ -251,9 +270,20 @@ function SignupPage({ onSwitch }) {
             <form onSubmit={handleConfirm} style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
               <Field label="Verification Code" placeholder="123456" value={otpCode} onChange={e => setOtpCode(e.target.value)} />
               {error && <p style={{ color: "#ef4444", fontSize: "0.8rem" }}>{error}</p>}
+              {resendMsg && <p style={{ color: resendMsg.includes("resent") ? "#22c55e" : "#ef4444", fontSize: "0.8rem" }}>{resendMsg}</p>}
               <GradBtn type="submit" disabled={!otpCode || loading}>
                 {loading ? "Verifying..." : "Verify & Continue →"}
               </GradBtn>
+              <p style={{ textAlign: "center", fontSize: "0.82rem", color: "#4A4A4A", marginTop: "0.2rem" }}>
+                Didn't receive it?{" "}
+                <span
+                  onClick={handleResend}
+                  style={{ color: resendCooldown > 0 ? "#555" : YELLOW, fontWeight: 600, cursor: resendCooldown > 0 ? "not-allowed" : "pointer" }}
+                >
+                  {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
+                </span>
+                {" — also check your spam folder"}
+              </p>
             </form>
           </Card>
         </div>
