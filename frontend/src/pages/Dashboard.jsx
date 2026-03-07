@@ -950,7 +950,7 @@ export default function Dashboard() {
     { id: 3, text: "Complete your first topic", done: false },
   ];
 
-  const [account, setAccount] = useState({ name: "Student", category: "college" });
+  const [account, setAccount] = useState({ name: "", category: "college" });
   const [checks, setChecks] = useState(DEFAULT_CHECKS);
   const [learningTracks, setLearningTracks] = useState([]);
 
@@ -963,8 +963,18 @@ export default function Dashboard() {
     if (rawProfile) {
       try {
         const data = JSON.parse(rawProfile);
-        setAccount({ ...(data.profile || {}), ...(data.onboardingData || {}) });
+        const cached = { ...(data.profile || {}), ...(data.onboardingData || {}) };
+        // Always ensure name is populated from Cognito if profile doesn't have one
+        if (!cached.name) cached.name = currentUser.name || currentUser.email || "";
+        setAccount(cached);
       } catch (e) { /* ignore */ }
+    } else {
+      // No cache — seed with Cognito identity immediately so name shows right away
+      setAccount(prev => ({
+        ...prev,
+        name: currentUser.name || currentUser.email || "",
+        email: currentUser.email || "",
+      }));
     }
     const rawChecklist = localStorage.getItem(`aquire_checklist_${uid}`);
     if (rawChecklist) {
@@ -978,12 +988,26 @@ export default function Dashboard() {
     // Then fetch from DynamoDB (authoritative) and update state + cache
     fetchProfile().then(profile => {
       if (profile && Object.keys(profile).length > 0) {
-        setAccount(profile);
-        localStorage.setItem(`aquire_profile_${uid}`, JSON.stringify({ profile, onboardingData: {} }));
-      } else if (!rawProfile) {
-        setAccount({ name: currentUser.name || currentUser.email || "Student", email: currentUser.email, category: "college" });
+        // Always merge Cognito name as fallback so it's never blank
+        const merged = { name: currentUser.name || currentUser.email || "", ...profile };
+        setAccount(merged);
+        localStorage.setItem(`aquire_profile_${uid}`, JSON.stringify({ profile: merged, onboardingData: {} }));
+      } else {
+        // No profile saved yet — use Cognito identity
+        setAccount(prev => ({
+          ...prev,
+          name: prev.name || currentUser.name || currentUser.email || "",
+          email: prev.email || currentUser.email,
+        }));
       }
-    }).catch(console.warn);
+    }).catch(() => {
+      // API unreachable — fall back to Cognito name so we never show a blank/default
+      setAccount(prev => ({
+        ...prev,
+        name: prev.name || currentUser.name || currentUser.email || "",
+        email: prev.email || currentUser.email,
+      }));
+    });
 
     fetchChecklist().then(list => {
       if (list?.length > 0) {
