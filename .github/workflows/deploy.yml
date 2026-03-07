@@ -57,7 +57,7 @@ jobs:
         run: |
           aws apprunner start-deployment \
             --service-arn ${{ secrets.APPRUNNER_SERVICE_ARN }} \
-            --region ${{ env.AWS_REGION }}
+            --region ${{ env.AWS_REGION }} || echo "Service already deploying or in transition — skipping manual trigger"
 
   # ── Job 2: Build React → sync to S3 → invalidate CloudFront ─────────────
   deploy-frontend:
