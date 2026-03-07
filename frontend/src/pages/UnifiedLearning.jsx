@@ -124,9 +124,11 @@ export default function UnifiedLearning() {
     const [ghostMessage, setGhostMessage] = useState(null); // { text, type } | null
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [hasUnread, setHasUnread] = useState(false);
+    const [audioBlocked, setAudioBlocked] = useState(false);
 
     const videoRef = useRef(null);
     const audioRef = useRef(null);
+    const pendingAudioRef = useRef(null); // held ready when autoplay is blocked
     const chatHistoryRef = useRef(chatHistory);
     const chatBottomRef = useRef(null);
     const chatInputRef = useRef(null);               // chat input field
@@ -152,33 +154,65 @@ export default function UnifiedLearning() {
     const playAudioResponse = useCallback(async (text) => {
         try {
             // Stop any currently playing audio first
-            if (audioRef.current) {
-                audioRef.current.pause();
-                audioRef.current = null;
-            }
+            if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+            if (pendingAudioRef.current) { pendingAudioRef.current.pause(); pendingAudioRef.current = null; }
+            setAudioBlocked(false);
+
             const audioBlob = await synthesizeSpeech(text);
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
             audioRef.current = audio;
+
+            const attachHandlers = (a, url) => {
+                a.onended = () => {
+                    setIsSpeaking(false);
+                    setAudioBlocked(false);
+                    URL.revokeObjectURL(url);
+                    audioRef.current = null;
+                    pendingAudioRef.current = null;
+                    setTimeout(() => setGhostMessage(null), 2000);
+                };
+                a.onerror = () => {
+                    setIsSpeaking(false);
+                    setAudioBlocked(false);
+                    URL.revokeObjectURL(url);
+                    audioRef.current = null;
+                    pendingAudioRef.current = null;
+                };
+            };
+            attachHandlers(audio, audioUrl);
+
             setIsSpeaking(true);
-            audio.onended = () => {
-                setIsSpeaking(false);
-                URL.revokeObjectURL(audioUrl);
-                audioRef.current = null;
-                // Linger ghost 2s after speech ends
-                setTimeout(() => setGhostMessage(null), 2000);
-            };
-            audio.onerror = () => {
-                setIsSpeaking(false);
-                URL.revokeObjectURL(audioUrl);
-                audioRef.current = null;
-            };
             const p = audio.play();
-            if (p) p.catch(e => { console.warn("[Audio] Autoplay blocked:", e); setIsSpeaking(false); });
+            if (p) {
+                p.catch(e => {
+                    console.warn("[Audio] Autoplay blocked — tap the overlay to play:", e);
+                    setIsSpeaking(false);
+                    setAudioBlocked(true);
+                    // Keep audio ready for user-gesture playback
+                    pendingAudioRef.current = audio;
+                    audioRef.current = null;
+                });
+            }
         } catch (e) {
             setIsSpeaking(false);
+            setAudioBlocked(false);
             console.warn("Audio synthesis skipped:", e);
         }
+    }, []);
+
+    // Called when user taps the overlay speaker button
+    const playPendingAudio = useCallback(() => {
+        const audio = pendingAudioRef.current;
+        if (!audio) return;
+        setAudioBlocked(false);
+        setIsSpeaking(true);
+        audioRef.current = audio;
+        pendingAudioRef.current = null;
+        audio.play().catch(e => {
+            console.warn("[Audio] Still blocked:", e);
+            setIsSpeaking(false);
+        });
     }, []);
 
     // Capture screen as base64 JPEG (skips <video> elements)
@@ -522,6 +556,20 @@ export default function UnifiedLearning() {
                                     }} />
                                 ))}
                             </div>
+                        )}
+                        {/* Tap-to-speak button when browser blocked autoplay */}
+                        {audioBlocked && !isSpeaking && (
+                            <button
+                                onClick={playPendingAudio}
+                                title="Tap to hear Kiro"
+                                style={{
+                                    background: `linear-gradient(135deg, ${YELLOW}, ${ORANGE})`,
+                                    border: "none", borderRadius: 6, cursor: "pointer",
+                                    color: "#0D0D0D", fontSize: "0.65rem", fontWeight: 800,
+                                    padding: "0.22rem 0.5rem", letterSpacing: "0.04em",
+                                    fontFamily: "'DM Sans', sans-serif", flexShrink: 0,
+                                }}
+                            >▶ PLAY</button>
                         )}
                         {/* Dismiss */}
                         <button
