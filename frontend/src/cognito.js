@@ -19,7 +19,7 @@ export { userPool };
 
 
 // ── Sign Up ───────────────────────────────────────────────────────────────────
-export function cognitoSignUp(email, password, name, username) {
+export function cognitoSignUp(email, password, name, username, phone) {
     return new Promise((resolve, reject) => {
         const attrs = [
             new CognitoUserAttribute({ Name: 'email', Value: email }),
@@ -27,6 +27,11 @@ export function cognitoSignUp(email, password, name, username) {
             // 'preferred_username' maps to Cognito's username alias
             new CognitoUserAttribute({ Name: 'preferred_username', Value: username }),
         ];
+        // Add phone_number only if provided; format must be E.164 e.g. +919876543210
+        if (phone) {
+            const e164 = phone.startsWith('+') ? phone : `+91${phone.replace(/\D/g, '')}`;
+            attrs.push(new CognitoUserAttribute({ Name: 'phone_number', Value: e164 }));
+        }
 
         userPool.signUp(email, password, attrs, null, (err, result) => {
             if (err) reject(err);

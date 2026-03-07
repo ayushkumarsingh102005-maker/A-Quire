@@ -27,7 +27,7 @@ function GradBtn({ children, onClick, style = {}, type = "button", disabled = fa
   );
 }
 
-function Field({ label, type = "text", placeholder, value, onChange, required = true, rightEl, prefix }) {
+function Field({ label, type = "text", placeholder, value, onChange, required = true, rightEl, prefix, inputMode, pattern, autoComplete, maxLength, autoCapitalize, autoCorrect, spellCheck }) {
   const [focused, setFocused] = useState(false);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.42rem" }}>
@@ -36,6 +36,8 @@ function Field({ label, type = "text", placeholder, value, onChange, required = 
         {prefix && <span style={{ position: "absolute", left: "1rem", color: "#555", fontSize: "0.9rem", zIndex: 1, pointerEvents: "none" }}>{prefix}</span>}
         <input type={type} placeholder={placeholder} value={value} onChange={onChange} required={required}
           onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+          inputMode={inputMode} pattern={pattern} autoComplete={autoComplete} maxLength={maxLength}
+          autoCapitalize={autoCapitalize} autoCorrect={autoCorrect} spellCheck={spellCheck}
           style={{
             background: "#131313", border: `1px solid ${focused ? "rgba(255,215,0,0.42)" : "#202020"}`,
             borderRadius: 8, padding: "0.82rem 1.1rem",
@@ -125,7 +127,7 @@ function LoginPage({ onSwitch }) {
     setLoading(true); setError("");
     try {
       console.log("[Login] Signing in...");
-      await cognitoSignIn(email, password);
+      await cognitoSignIn(email.trim().toLowerCase(), password);
       console.log("[Login] Sign in successful, refreshing session...");
       // Refresh auth context to update currentUser
       await refreshSession();
@@ -150,7 +152,7 @@ function LoginPage({ onSwitch }) {
             <p style={{ color: "#505050", fontSize: "0.87rem" }}>Continue your structured learning journey</p>
           </div>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
-            <Field label="Email Address" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} />
+            <Field label="Email Address" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} autoCapitalize="none" autoCorrect="off" spellCheck={false} />
             <Field label="Password" type={showPass ? "text" : "password"} placeholder="Enter your password" value={password} onChange={e => setPassword(e.target.value)}
               rightEl={<ShowHideBtn show={showPass} onToggle={() => setShowPass(v => !v)} />}
             />
@@ -212,7 +214,8 @@ function SignupPage({ onSwitch }) {
     if (!canSubmit) return;
     setLoading(true); setError("");
     try {
-      await cognitoSignUp(form.email, form.password, form.name, form.username);
+      const cleanEmail = form.email.trim().toLowerCase();
+      await cognitoSignUp(cleanEmail, form.password, form.name, form.username.trim(), form.phone);
       // Cognito sends a verification code to the email
       setStep("confirm");
     } catch (err) {
@@ -243,9 +246,10 @@ function SignupPage({ onSwitch }) {
     e.preventDefault();
     setLoading(true); setError("");
     try {
-      await cognitoConfirmSignUp(form.email, otpCode);
+      const cleanEmail = form.email.trim().toLowerCase();
+      await cognitoConfirmSignUp(cleanEmail, otpCode);
       // Sign in immediately after email verification
-      await cognitoSignIn(form.email, form.password);
+      await cognitoSignIn(cleanEmail, form.password);
       // Refresh auth context to update currentUser
       await refreshSession();
       navigate("/studentinfo", { state: { name: form.name, email: form.email, phone: form.phone, username: form.username } });
@@ -265,10 +269,11 @@ function SignupPage({ onSwitch }) {
           <Card>
             <div style={{ marginBottom: "1.8rem" }}>
               <h1 style={{ fontFamily: "'Times New Roman', serif", fontSize: "1.75rem", fontWeight: 800, color: "#F0F0F0", marginBottom: "0.35rem" }}>Check your email</h1>
-              <p style={{ color: "#505050", fontSize: "0.87rem" }}>We sent a verification code to <strong style={{ color: "#888" }}>{form.email}</strong></p>
+              <p style={{ color: "#505050", fontSize: "0.87rem" }}>We sent a 6-digit code to <strong style={{ color: "#888" }}>{form.email}</strong></p>
+              <p style={{ color: "#404040", fontSize: "0.78rem", marginTop: "0.4rem" }}>📱 On mobile? Check <strong style={{ color: "#666" }}>Spam / Promotions</strong> — the email comes from <em>no-reply@verificationemail.com</em></p>
             </div>
             <form onSubmit={handleConfirm} style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
-              <Field label="Verification Code" placeholder="123456" value={otpCode} onChange={e => setOtpCode(e.target.value)} />
+              <Field label="Verification Code" placeholder="123456" value={otpCode} onChange={e => setOtpCode(e.target.value.replace(/\D/g, ""))} inputMode="numeric" pattern="[0-9]*" autoComplete="one-time-code" maxLength={6} />
               {error && <p style={{ color: "#ef4444", fontSize: "0.8rem" }}>{error}</p>}
               {resendMsg && <p style={{ color: resendMsg.includes("resent") ? "#22c55e" : "#ef4444", fontSize: "0.8rem" }}>{resendMsg}</p>}
               <GradBtn type="submit" disabled={!otpCode || loading}>
@@ -303,9 +308,9 @@ function SignupPage({ onSwitch }) {
           </div>
           <form onSubmit={handleSignup} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             <Field label="Full Name" placeholder="Your full name" value={form.name} onChange={set("name")} />
-            <Field label="Email Address" type="email" placeholder="you@example.com" value={form.email} onChange={set("email")} />
+            <Field label="Email Address" type="email" placeholder="you@example.com" value={form.email} onChange={set("email")} autoCapitalize="none" autoCorrect="off" spellCheck={false} />
             <Field label="Phone Number" type="tel" placeholder="9876543210" value={form.phone} onChange={set("phone")} prefix="+91" />
-            <Field label="Username" placeholder="e.g. arjun_codes" value={form.username} onChange={set("username")} />
+            <Field label="Username" placeholder="e.g. arjun_codes" value={form.username} onChange={set("username")} autoCapitalize="none" autoCorrect="off" spellCheck={false} />
             <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem" }}>
               <Field label="Create Password" type={showPass ? "text" : "password"} placeholder="Min. 8 characters" value={form.password} onChange={set("password")}
                 rightEl={<ShowHideBtn show={showPass} onToggle={() => setShowPass(v => !v)} />}
