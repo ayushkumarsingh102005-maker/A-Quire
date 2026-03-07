@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Home from "./pages/home";
 import Auth from "./pages/login_signup";
 import StudentInfo from "./pages/student_info";
-import Dashboard from "./pages/dashboard";
+import Dashboard from "./pages/Dashboard";
 import LearningTrack from "./pages/learning_track";
 import UnifiedLearning from "./pages/UnifiedLearning";
 import { AuthProvider } from "./context/AuthContext";
