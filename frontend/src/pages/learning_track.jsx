@@ -50,6 +50,14 @@ export default function LearningTrack() {
 
     const [track, setTrack] = useState(null);
     const [openSteps, setOpenSteps] = useState({ 0: true });
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
+
+    useEffect(() => {
+        const check = () => setIsMobile(window.innerWidth < 768);
+        window.addEventListener("resize", check);
+        return () => window.removeEventListener("resize", check);
+    }, []);
     const [completedTopicsArr, setCompletedTopicsArr] = useState(() => {
         const uid = window._aquireUid || "guest";
         const key = `aquire_tracks_${uid}`;
@@ -147,11 +155,20 @@ export default function LearningTrack() {
 
             <div style={{ display: "flex", minHeight: "100vh", background: "#0A0A0A" }}>
 
+                {/* ── MOBILE OVERLAY ── */}
+                {isMobile && sidebarOpen && (
+                    <div onClick={() => setSidebarOpen(false)} style={{
+                        position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 99, backdropFilter: "blur(2px)",
+                    }} />
+                )}
+
                 {/* ── SIDEBAR ── */}
                 <aside style={{
                     position: "fixed", top: 0, left: 0, bottom: 0, width: SIDEBAR_W,
                     background: "#0D0D0D", borderRight: "1px solid #171717",
                     display: "flex", flexDirection: "column", zIndex: 100, overflowY: "auto",
+                    transform: isMobile && !sidebarOpen ? `translateX(-${SIDEBAR_W}px)` : "translateX(0)",
+                    transition: "transform 0.28s ease",
                 }}>
                     <div onClick={() => navigate("/dashboard")} style={{ padding: "1.6rem 1.2rem 1.2rem", borderBottom: "1px solid #171717", cursor: "pointer" }}>
                         <span style={{
@@ -199,11 +216,28 @@ export default function LearningTrack() {
                 </aside>
 
                 {/* ── MAIN CONTENT ── */}
-                <main style={{ marginLeft: SIDEBAR_W, flex: 1, padding: "3rem 4rem 5rem", maxWidth: 1000 }}>
+                <main style={{ marginLeft: isMobile ? 0 : SIDEBAR_W, flex: 1, padding: isMobile ? "1rem 0.9rem 5rem" : "3rem 4rem 5rem", maxWidth: 1000 }}>
                     <div style={{ animation: "fadeUp 0.5s ease both" }}>
 
+                        {/* ── MOBILE TOPBAR ── */}
+                        {isMobile && (
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.2rem" }}>
+                                <button onClick={() => setSidebarOpen(v => !v)} style={{
+                                    background: "none", border: "1px solid #2A2A2A", borderRadius: 8,
+                                    padding: "0.5rem 0.75rem", cursor: "pointer", color: "#C0C0C0", fontSize: "1.1rem", lineHeight: 1,
+                                }}>☰</button>
+                                <span onClick={() => navigate("/dashboard")} style={{
+                                    fontFamily: "'Times New Roman', serif", fontSize: "1.15rem", fontWeight: 800, letterSpacing: "0.12em",
+                                    background: `linear-gradient(90deg, ${YELLOW}, ${ORANGE})`,
+                                    WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+                                    cursor: "pointer",
+                                }}>AQUIRE</span>
+                                <div style={{ width: 42 }} />
+                            </div>
+                        )}
+
                         {/* ── TRACK HEADER ── */}
-                        <div style={{ display: "flex", gap: "1.5rem", alignItems: "flex-start", marginBottom: "3rem" }}>
+                        <div style={{ display: "flex", gap: "1.5rem", alignItems: "flex-start", marginBottom: "3rem", flexWrap: isMobile ? "wrap" : "nowrap" }}>
                             <div style={{
                                 width: 80, height: 80, borderRadius: 20, flexShrink: 0,
                                 background: `${track.color}15`, border: `1px solid ${track.color}30`,
@@ -212,7 +246,7 @@ export default function LearningTrack() {
                                 {typeof track.icon === "string" ? track.icon : track.icon ? (() => { const Icon = track.icon; return <Icon size={40} color={track.color} strokeWidth={1.5} />; })() : null}
                             </div>
                             <div style={{ flex: 1 }}>
-                                <h1 style={{ fontFamily: "'Times New Roman', serif", fontSize: "2.6rem", fontWeight: 800, color: "#F0F0F0", lineHeight: 1.1, marginBottom: "0.4rem" }}>
+                                <h1 style={{ fontFamily: "'Times New Roman', serif", fontSize: "clamp(1.5rem, 5vw, 2.6rem)", fontWeight: 800, color: "#F0F0F0", lineHeight: 1.1, marginBottom: "0.4rem" }}>
                                     {track.title}
                                 </h1>
                                 <p style={{ fontSize: "1rem", color: "#A0A0A0", fontWeight: 400, maxWidth: "80%" }}>
@@ -305,8 +339,9 @@ export default function LearningTrack() {
 
                                                         return (
                                                             <div key={itemIndex} style={{
-                                                                display: "flex", alignItems: "center", gap: "1.2rem",
-                                                                padding: "1.1rem 1.5rem", borderBottom: itemIndex === step.items.length - 1 ? "none" : "1px solid #141414",
+                                                                display: "flex", alignItems: "center", gap: "0.8rem",
+                                                                padding: isMobile ? "0.85rem 1rem" : "1.1rem 1.5rem",
+                                                                borderBottom: itemIndex === step.items.length - 1 ? "none" : "1px solid #141414",
                                                                 transition: "background 0.2s"
                                                             }}
                                                                 onMouseEnter={e => { e.currentTarget.style.background = "#0D0D0D"; }}
@@ -330,7 +365,7 @@ export default function LearningTrack() {
                                                                 </div>
 
                                                                 {/* Problem Title & Badge */}
-                                                                <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "1rem" }}>
+                                                                <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap", minWidth: 0 }}>
                                                                     <span style={{
                                                                         fontSize: "0.98rem", color: isDone ? "#777" : "#E0E0E0", fontWeight: 500,
                                                                         textDecoration: isDone ? "line-through" : "none", transition: "color 0.2s"

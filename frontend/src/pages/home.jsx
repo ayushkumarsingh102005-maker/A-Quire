@@ -87,15 +87,50 @@ function Nav({ onSignup }) {
           ))}
         </ul>
 
-        <div style={{ display: "flex", gap: "0.8rem", alignItems: "center" }}>
+        <div className="nav-btns" style={{ display: "flex", gap: "0.8rem", alignItems: "center" }}>
           <GhostBtn onClick={() => navigate('/login')}>Log In</GhostBtn>
           <GradBtn onClick={onSignup}>Sign Up Free</GradBtn>
         </div>
+        {/* ── HAMBURGER (mobile only) ── */}
+        <button className="nav-ham" onClick={() => setDrawerOpen(v => !v)} style={{
+          display: "none", background: "none", border: "1px solid #333",
+          borderRadius: 6, padding: "0.35rem 0.75rem", cursor: "pointer",
+          color: "#F0F0F0", fontSize: "1.2rem", lineHeight: 1, alignItems: "center", justifyContent: "center",
+        }}>
+          {drawerOpen ? "✕" : "☰"}
+        </button>
       </nav>
+
+      {/* ── MOBILE DRAWER ── */}
+      {drawerOpen && (
+        <div style={{
+          position: "fixed", top: 70, left: 0, right: 0, zIndex: 999,
+          background: "rgba(10,10,10,0.98)", backdropFilter: "blur(16px)",
+          borderBottom: "1px solid #222", padding: "1.5rem 5%",
+          display: "flex", flexDirection: "column", gap: "0.8rem",
+        }}>
+          {links.map(l => (
+            <a key={l} href={`#${l}`} onClick={() => setDrawerOpen(false)} style={{
+              color: "#C0C0C0", textDecoration: "none", fontSize: "1rem",
+              fontWeight: 600, padding: "0.5rem 0", borderBottom: "1px solid #1A1A1A",
+            }}>
+              {l.charAt(0).toUpperCase() + l.slice(1)}
+            </a>
+          ))}
+          <div style={{ display: "flex", gap: "0.75rem", paddingTop: "0.5rem" }}>
+            <GhostBtn onClick={() => { navigate('/login'); setDrawerOpen(false); }} style={{ flex: 1 }}>Log In</GhostBtn>
+            <GradBtn onClick={() => { onSignup(); setDrawerOpen(false); }} style={{ flex: 1 }}>Sign Up</GradBtn>
+          </div>
+        </div>
+      )}
 
       <style>{`
         .nav-links-desktop { display: flex; }
-        @media (max-width: 768px) { .nav-links-desktop { display: none !important; } }
+        @media (max-width: 768px) {
+          .nav-links-desktop { display: none !important; }
+          .nav-btns { display: none !important; }
+          .nav-ham { display: flex !important; }
+        }
       `}</style>
     </>
   );
@@ -273,7 +308,7 @@ function Mission() {
   ];
   return (
     <section id="mission" style={{ padding: "100px 5%", background: "#111" }}>
-      <div style={{ maxWidth: 1280, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "5rem", alignItems: "start" }}>
+      <div className="mission-grid" style={{ maxWidth: 1280, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "5rem", alignItems: "start" }}>
         <Reveal direction="left">
           <SectionLabel>Our Mission</SectionLabel>
           <h2 style={{ fontFamily: "'Times New Roman', serif", fontSize: "clamp(2rem,3.5vw,3rem)", fontWeight: 800, lineHeight: 1.15, marginBottom: "1rem", color: "#F0F0F0" }}>
@@ -427,7 +462,7 @@ function WhyBlock1() {
   ];
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "5rem", alignItems: "center", marginBottom: "6rem" }}>
+    <div className="why-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "5rem", alignItems: "center", marginBottom: "6rem" }}>
       <Reveal direction="left">
         <div ref={ref} style={{ background: "#1A1A1A", border: "1px solid #222", borderRadius: 20, padding: "2.5rem", position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${YELLOW}, ${ORANGE})` }} />
@@ -492,7 +527,7 @@ function WhyBlock2() {
   ];
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "5rem", alignItems: "center" }}>
+    <div className="why-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "5rem", alignItems: "center" }}>
       <Reveal direction="right">
         <div style={{ background: "#1A1A1A", border: "1px solid #222", borderRadius: 20, padding: "2.5rem", position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${YELLOW}, ${ORANGE})` }} />
@@ -639,7 +674,7 @@ function Testimonials() {
               transform: `translateX(-${slide * 100}%)`,
             }}>
               {testimonials.map((group, gi) => (
-                <div key={gi} style={{ flexShrink: 0, width: "100%", display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "1.5rem" }}>
+                <div key={gi} className="testi-inner" style={{ flexShrink: 0, width: "100%", display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "1.5rem" }}>
                   {group.map((t, i) => <TestiCard key={i} {...t} />)}
                 </div>
               ))}
@@ -683,7 +718,7 @@ function Contact({ onSignup }) {
 
   return (
     <section id="contact" style={{ padding: "100px 5%", background: "#111" }}>
-      <div style={{ maxWidth: 1280, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "5rem", alignItems: "start" }}>
+      <div className="contact-grid" style={{ maxWidth: 1280, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "5rem", alignItems: "start" }}>
         <Reveal direction="left">
           <SectionLabel>Get In Touch</SectionLabel>
           <h2 style={{ fontFamily: "'Times New Roman', serif", fontSize: "clamp(2rem,3.5vw,3rem)", fontWeight: 800, color: "#F0F0F0", marginBottom: "0.8rem" }}>
@@ -809,8 +844,8 @@ function Footer() {
     }}>
       <div style={{
         maxWidth: 1280, margin: "0 auto",
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-        flexWrap: "wrap", gap: "1rem",
+        display: "flex", justifyContent: "center", alignItems: "center",
+        flexWrap: "wrap", gap: "1rem", textAlign: "center",
       }}>
         <div style={{
           fontFamily: "'Times New Roman', serif", fontWeight: 800, fontSize: "1.2rem",

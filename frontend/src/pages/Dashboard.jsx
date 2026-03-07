@@ -942,6 +942,14 @@ export default function Dashboard() {
 
   const [activeNav, setActiveNav] = useState("dashboard");
   const [profileOpen, setProfileOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   // ── Local data (read from localStorage, written back on change) ──
   const DEFAULT_CHECKS = [
@@ -1057,6 +1065,7 @@ export default function Dashboard() {
   const setNav = (key) => {
     setActiveNav(key);
     if (key.startsWith("profile-")) setProfileOpen(true);
+    setSidebarOpen(false);
   };
 
   const completedTopics = new Set(learningTracks);
@@ -1087,11 +1096,20 @@ export default function Dashboard() {
 
       <div style={{ display: "flex", minHeight: "100vh", background: "#0A0A0A" }}>
 
+        {/* ── MOBILE OVERLAY ── */}
+        {isMobile && sidebarOpen && (
+          <div onClick={() => setSidebarOpen(false)} style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 99, backdropFilter: "blur(2px)",
+          }} />
+        )}
+
         {/* ── SIDEBAR ── */}
         <aside style={{
           position: "fixed", top: 0, left: 0, bottom: 0, width: SIDEBAR_W,
           background: "#0D0D0D", borderRight: "1px solid #171717",
           display: "flex", flexDirection: "column", zIndex: 100, overflowY: "auto",
+          transform: isMobile && !sidebarOpen ? `translateX(-${SIDEBAR_W}px)` : "translateX(0)",
+          transition: "transform 0.28s ease",
         }}>
           <div style={{ padding: "1.6rem 1.2rem 1.2rem", borderBottom: "1px solid #171717" }}>
             <span style={{
@@ -1152,9 +1170,26 @@ export default function Dashboard() {
 
         {/* ── MAIN ── */}
         <main style={{
-          marginLeft: SIDEBAR_W, flex: 1, minHeight: "100vh",
-          padding: "2.4rem 2.4rem 5rem",
+          marginLeft: isMobile ? 0 : SIDEBAR_W, flex: 1, minHeight: "100vh",
+          padding: isMobile ? "1rem 0.9rem 5rem" : "2.4rem 2.4rem 5rem",
         }}>
+
+          {/* ── MOBILE TOPBAR ── */}
+          {isMobile && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.2rem" }}>
+              <button onClick={() => setSidebarOpen(v => !v)} style={{
+                background: "none", border: "1px solid #2A2A2A", borderRadius: 8,
+                padding: "0.5rem 0.75rem", cursor: "pointer", color: "#C0C0C0",
+                fontSize: "1.1rem", lineHeight: 1,
+              }}>☰</button>
+              <span style={{
+                fontFamily: "'Times New Roman', serif", fontSize: "1.15rem", fontWeight: 800, letterSpacing: "0.12em",
+                background: `linear-gradient(90deg, ${YELLOW}, ${ORANGE})`,
+                WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+              }}>AQUIRE</span>
+              <div style={{ width: 42 }} />
+            </div>
+          )}
 
           {/* ── DASHBOARD VIEW ── */}
           {activeNav === "dashboard" && (
@@ -1171,7 +1206,7 @@ export default function Dashboard() {
                 <p style={{ fontSize: "0.85rem", color: DIM, marginTop: "0.25rem" }}>Here's your progress overview for today.</p>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "auto auto", gap: "1rem", marginBottom: "1.4rem" }}>
+              <div className="dash-grid-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "auto auto", gap: "1rem", marginBottom: "1.4rem" }}>
                 <MonthCalendar streak={streak} />
                 <StatsSection stats={stats} />
                 <IntelligenceGraph stats={{ ...stats, streak }} intelligence={intelligence} tracks={subjects.slice(0, 3).map(s => ({ label: s.title, progress: s.progress }))} />
@@ -1189,7 +1224,7 @@ export default function Dashboard() {
                     {subjects.length} tracks
                   </span>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.9rem" }}>
+                <div className="dash-grid-3col" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.9rem" }}>
                   {subjects.map(s => <SubjectCard key={s.title} {...s} onClick={() => navigate(`/track/${s.id}`)} />)}
                 </div>
               </div>
