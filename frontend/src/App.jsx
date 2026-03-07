@@ -1,10 +1,10 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Home from "./PAGES/home";
-import Auth from "./PAGES/login_signup";
-import StudentInfo from "./PAGES/student_info";
-import Dashboard from "./PAGES/dashboard";
-import LearningTrack from "./PAGES/learning_track";
-import UnifiedLearning from "./PAGES/UnifiedLearning";
+import Home from "./pages/home";
+import Auth from "./pages/login_signup";
+import StudentInfo from "./pages/student_info";
+import Dashboard from "./pages/dashboard";
+import LearningTrack from "./pages/learning_track";
+import UnifiedLearning from "./pages/UnifiedLearning";
 import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute, PublicRoute } from "./components/RouteGuards";
 
