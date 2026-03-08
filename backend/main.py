@@ -18,7 +18,7 @@ from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 import io
 
@@ -152,8 +152,11 @@ class TopicCompleteRequest(BaseModel):
     topic_id: str
 
 class StudentProfilePayload(BaseModel):
+    model_config = ConfigDict(extra="allow")  # Pass all fields through to DynamoDB
     name: Optional[str] = Field(default=None, max_length=200)
     email: Optional[str] = Field(default=None, max_length=320)
+    phone: Optional[str] = Field(default=None, max_length=20)
+    category: Optional[str] = Field(default=None, max_length=50)
     learning_pace: Optional[str] = Field(default=None, pattern="^(slow|medium|fast|reflective)$")
     goal: Optional[str] = Field(default=None, max_length=500)
     experience_level: Optional[str] = Field(default=None, max_length=100)
