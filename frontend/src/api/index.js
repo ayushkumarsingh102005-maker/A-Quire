@@ -152,3 +152,7 @@ export const sessionStart = (courseId) =>
 // ── SES: milestone email when track hits 100% ─────────────────────────────
 export const sendMilestoneEmail = (trackTitle) =>
   _post("/api/user/milestones/email", { track_title: trackTitle }).catch(e => console.warn("[milestone/email]", e));
+
+// ── Progress: mark a topic complete ─────────────────────────────────────────
+export const markTopicComplete = (courseId, topicId) =>
+  _post("/api/progress/complete", { course_id: courseId, topic_id: topicId });

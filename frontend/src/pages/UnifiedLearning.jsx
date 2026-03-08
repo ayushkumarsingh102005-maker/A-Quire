@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Play, CheckCircle, Video, BookOpen, MessageSquare, Code, Terminal, ChevronLeft, Loader } from "lucide-react";
+import Editor from "@monaco-editor/react";
 import { ROADMAP } from "../data/roadmap";
-import { sendGazeEvent, synthesizeSpeech, sessionStart } from "../api/index";
+import { sendGazeEvent, synthesizeSpeech, sessionStart, markTopicComplete } from "../api/index";
 import html2canvas from "html2canvas";
 import { GazeTracker } from "../utils/GazeTracker";
 
@@ -95,6 +96,7 @@ export default function UnifiedLearning() {
     const [code, setCode] = useState(typeof problemInfo.starterCode === "string" ? problemInfo.starterCode : "");
     const [consoleOutput, setConsoleOutput] = useState("Ready. Run your code to see output here.");
     const [isAiThinking, setIsAiThinking] = useState(false);
+    const [isRunning, setIsRunning] = useState(false);
     const [langDropdownOpen, setLangDropdownOpen] = useState(false);
 
     // ── CloudWatch: emit SessionStart on mount ──
@@ -472,6 +474,53 @@ export default function UnifiedLearning() {
     const diffColor = problemInfo.difficulty === "Easy" ? "#22C55E" : problemInfo.difficulty === "Medium" ? "#F59E0B" : "#EF4444";
     const safeCode = typeof code === "string" ? code : "";
 
+    const PISTON_LANG_MAP = {
+        javascript: { language: "javascript", version: "18.15.0" },
+        python:     { language: "python",     version: "3.10.0"  },
+        java:       { language: "java",       version: "15.0.2"  },
+        cpp:        { language: "c++",        version: "10.2.0"  },
+        c:          { language: "c",          version: "10.2.0"  },
+        go:         { language: "go",         version: "1.16.2"  },
+        rust:       { language: "rust",       version: "1.50.0"  },
+        typescript: { language: "typescript", version: "5.0.3"   },
+    };
+
+    const runCode = async () => {
+        setIsRunning(true);
+        setConsoleOutput("Running...");
+        const pistonLang = PISTON_LANG_MAP[language] || PISTON_LANG_MAP.javascript;
+        try {
+            const res = await fetch("https://emkc.org/api/v2/piston/execute", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    language: pistonLang.language,
+                    version: pistonLang.version,
+                    files: [{ content: safeCode }],
+                }),
+            });
+            if (!res.ok) throw new Error(`Execution engine returned ${res.status}`);
+            const data = await res.json();
+            const stdout = data.run?.stdout || "";
+            const stderr = data.run?.stderr || "";
+            const output = stdout + (stderr ? `\n[stderr]\n${stderr}` : "");
+            setConsoleOutput(output.trim() || "(no output)");
+        } catch (e) {
+            setConsoleOutput(`Error: ${e.message || "Could not connect to execution engine."}`);
+        } finally {
+            setIsRunning(false);
+        }
+    };
+
+    const handleSubmit = async () => {
+        try {
+            await markTopicComplete(trackId, problemInfo.title);
+        } catch (e) {
+            console.warn("[Submit] markTopicComplete failed:", e);
+        }
+        navigate(-1);
+    };
+
     // ── RENDER ──
     return (
         <div style={{ display: "flex", flexDirection: "column", height: "100vh", width: "100vw", background: "#0A0A0A", color: "#F0F0F0", fontFamily: "'DM Sans', 'Inter', sans-serif", overflow: "hidden" }}>
@@ -662,14 +711,16 @@ export default function UnifiedLearning() {
                         )}
                     </div>
 
-                    <button onClick={() => setConsoleOutput("Running...\nExecution successful.\nOutput: [0, 1]")} style={{
+                    <button onClick={runCode} disabled={isRunning} style={{
                         background: "rgba(255,255,255,0.05)", border: "1px solid #2A2A2A", color: "#E0E0E0",
                         padding: "0.4rem 0.9rem", borderRadius: 6, display: "flex", alignItems: "center", gap: "0.4rem",
-                        fontSize: "0.82rem", fontWeight: 600, cursor: "pointer"
+                        fontSize: "0.82rem", fontWeight: 600, cursor: isRunning ? "not-allowed" : "pointer",
+                        opacity: isRunning ? 0.6 : 1,
                     }}>
-                        <Play size={13} /> Run
+                        {isRunning ? <Loader size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Play size={13} />}
+                        {isRunning ? "Running..." : "Run"}
                     </button>
-                    <button style={{
+                    <button onClick={handleSubmit} style={{
                         background: `linear-gradient(135deg, ${YELLOW}, ${ORANGE})`, border: "none", color: "#0D0D0D",
                         padding: "0.4rem 1rem", borderRadius: 6, display: "flex", alignItems: "center", gap: "0.4rem",
                         fontSize: "0.82rem", fontWeight: 700, cursor: "pointer"
@@ -961,28 +1012,26 @@ export default function UnifiedLearning() {
                     })()}
 
                     {/* Editor */}
-                    <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
-                        <div style={{
-                            width: 38, background: "#181818", borderRight: "1px solid #2A2A2A",
-                            display: "flex", flexDirection: "column", alignItems: "center",
-                            paddingTop: "1rem", color: "#444", fontSize: "0.78rem",
-                            fontFamily: "'Fira Code', monospace", lineHeight: "1.5rem", userSelect: "none", flexShrink: 0
-                        }}>
-                            {safeCode.split("\n").map((_, i) => <div key={i}>{i + 1}</div>)}
-                        </div>
-                        <textarea
+                    <div style={{ flex: 1, minHeight: 0 }}>
+                        <Editor
+                            height="100%"
+                            language={language}
                             value={safeCode}
-                            onChange={(e) => setCode(e.target.value)}
-                            onKeyDown={() => {
+                            theme="vs-dark"
+                            onChange={(val) => {
+                                setCode(val || "");
                                 lastTypedTime.current = Date.now();
                                 gazeTrackerRef.current?.resetFixation();
                             }}
-                            spellCheck="false"
-                            style={{
-                                flex: 1, background: "transparent", border: "none", resize: "none",
-                                padding: "1rem", color: "#D4D4D4", fontSize: "0.9rem",
+                            options={{
+                                fontSize: 14,
                                 fontFamily: "'Fira Code', 'Courier New', monospace",
-                                lineHeight: "1.5rem", outline: "none", whiteSpace: "pre", overflowX: "auto"
+                                minimap: { enabled: false },
+                                scrollBeyondLastLine: false,
+                                wordWrap: "off",
+                                lineNumbers: "on",
+                                renderLineHighlight: "line",
+                                automaticLayout: true,
                             }}
                         />
                     </div>
