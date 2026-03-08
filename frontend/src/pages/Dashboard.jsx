@@ -1171,7 +1171,7 @@ export default function Dashboard() {
   const firstName = account.name?.split(" ")[0] || "there";
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const catLabel = { school: "School", college: "College", fresher: "Fresher", working: "Working" };
+  const catLabel = { school: "School Student", college: "College Student", fresher: "Fresher", working: "Working Professional" };
 
   // ── Checklist helpers (DynamoDB-backed, localStorage cache) ──
   const persistChecklist = (newChecks) => {
@@ -1261,7 +1261,7 @@ export default function Dashboard() {
                   fontSize: "0.6rem", fontWeight: 700, color: YELLOW,
                   background: "rgba(255,215,0,0.07)", border: "1px solid rgba(255,215,0,0.18)",
                   padding: "0.08rem 0.45rem", borderRadius: 100, display: "inline-block", marginTop: "0.15rem",
-                }}>{catLabel[account.category] || "Student"} Student</span>
+                }}>{catLabel[account.category] || "Student"}</span>
               </div>
             </div>
           </div>
