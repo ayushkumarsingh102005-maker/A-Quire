@@ -28,9 +28,24 @@ Thumbs.db
 
 # ── Logs / Temp ───────────────────────────────────────────────────────────────
 *.log
-fix_encoding.py
 ~$*.docx
 !backend/requirements.txt
 !frontend/README.md
-fix_heap.py
-fix_desc.py
+
+# ── Dev / Benchmarking (never commit) ────────────────────────────────────────
+backend/locustfile.py
+backend/benchmark_profile.py
+backend/benchmark.prof
+backend/get_token.py
+backend/test_*.py
+backend/quick_test.py
+backend/*_out.txt
+backend/*_check.txt
+backend/*_models.txt
+backend/model_results.txt
+backend/out*.txt
+backend/result.txt
+frontend/debug_*.js
+pyspy_*.svg
+*.prof
+fix_*.py
