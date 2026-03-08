@@ -154,8 +154,31 @@ class TopicCompleteRequest(BaseModel):
 
 class ExecuteRequest(BaseModel):
     language: str = Field(max_length=50)
-    version: str = Field(max_length=20)
     code: str = Field(max_length=50_000)
+
+# Cache of Piston runtimes: {language -> latest_version}
+_piston_runtimes: dict[str, str] = {}
+
+async def _get_piston_version(language: str) -> str:
+    """Return the latest available Piston version for a language, with caching."""
+    global _piston_runtimes
+    if language not in _piston_runtimes:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get("https://emkc.org/api/v2/piston/runtimes")
+                resp.raise_for_status()
+                runtimes = resp.json()
+                # Build map: language -> highest version (last entry per language is latest)
+                mapping = {}
+                for rt in runtimes:
+                    mapping[rt["language"]] = rt["version"]
+                    # also map aliases
+                    for alias in rt.get("aliases", []):
+                        mapping[alias] = rt["version"]
+                _piston_runtimes = mapping
+        except Exception as e:
+            logger.warning("Could not fetch Piston runtimes: %s", e)
+    return _piston_runtimes.get(language, "*")
 
 class StudentProfilePayload(BaseModel):
     model_config = ConfigDict(extra="allow")  # Pass all fields through to DynamoDB
@@ -318,13 +341,14 @@ async def execute_code(
     ALLOWED_LANGUAGES = {"javascript", "python", "java", "c++", "c", "go", "rust", "typescript"}
     if req.language not in ALLOWED_LANGUAGES:
         raise HTTPException(status_code=400, detail=f"Unsupported language: {req.language}")
+    version = await _get_piston_version(req.language)
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
                 "https://emkc.org/api/v2/piston/execute",
                 json={
                     "language": req.language,
-                    "version": req.version,
+                    "version": version,
                     "files": [{"content": req.code}],
                 },
                 headers={"Content-Type": "application/json"},
@@ -332,8 +356,8 @@ async def execute_code(
             resp.raise_for_status()
             return resp.json()
     except httpx.HTTPStatusError as e:
-        logger.warning("Piston returned %s", e.response.status_code)
-        raise HTTPException(status_code=502, detail="Execution engine error")
+        logger.warning("Piston returned %s: %s", e.response.status_code, e.response.text)
+        raise HTTPException(status_code=502, detail=f"Execution engine error: {e.response.status_code}")
     except httpx.RequestError as e:
         logger.warning("Piston unreachable: %s", e)
         raise HTTPException(status_code=503, detail="Execution engine unreachable")

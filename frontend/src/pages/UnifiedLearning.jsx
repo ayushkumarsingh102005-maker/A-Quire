@@ -475,22 +475,22 @@ export default function UnifiedLearning() {
     const safeCode = typeof code === "string" ? code : "";
 
     const PISTON_LANG_MAP = {
-        javascript: { language: "javascript", version: "18.15.0" },
-        python:     { language: "python",     version: "3.10.0"  },
-        java:       { language: "java",       version: "15.0.2"  },
-        cpp:        { language: "c++",        version: "10.2.0"  },
-        c:          { language: "c",          version: "10.2.0"  },
-        go:         { language: "go",         version: "1.16.2"  },
-        rust:       { language: "rust",       version: "1.50.0"  },
-        typescript: { language: "typescript", version: "5.0.3"   },
+        javascript: "javascript",
+        python:     "python",
+        java:       "java",
+        cpp:        "c++",
+        c:          "c",
+        go:         "go",
+        rust:       "rust",
+        typescript: "typescript",
     };
 
     const runCode = async () => {
         setIsRunning(true);
         setConsoleOutput("Running...");
-        const pistonLang = PISTON_LANG_MAP[language] || PISTON_LANG_MAP.javascript;
+        const pistonLang = PISTON_LANG_MAP[language] || "javascript";
         try {
-            const data = await executeCode(pistonLang.language, pistonLang.version, safeCode);
+            const data = await executeCode(pistonLang, safeCode);
             const stdout = data.run?.stdout || "";
             const stderr = data.run?.stderr || "";
             const output = stdout + (stderr ? `\n[stderr]\n${stderr}` : "");
