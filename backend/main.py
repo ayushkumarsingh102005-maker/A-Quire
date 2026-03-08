@@ -6,6 +6,14 @@ from collections import defaultdict
 from dotenv import load_dotenv
 load_dotenv()  # Must be FIRST — loads .env before any boto3 clients initialise
 
+# ── AWS X-Ray tracing ──────────────────────────────────────────────────────────
+from aws_xray_sdk.core import xray_recorder, patch_all
+xray_recorder.configure(
+    service="aquire-backend",
+    context_missing="LOG_ERROR",   # Don't crash on missing segment (import-time boto3 calls)
+)
+patch_all()  # Auto-patches boto3 — traces all AWS API calls (Bedrock, S3, DynamoDB etc.)
+
 from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
