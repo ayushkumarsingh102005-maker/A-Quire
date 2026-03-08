@@ -22,14 +22,14 @@ const LANGUAGES = [
 ];
 
 const STARTER_TEMPLATES = {
-    javascript: (title) => `/**\n * ${title}\n */\nfunction solution() {\n    \n}`,
-    python: (title) => `# ${title}\n\ndef solution():\n    pass`,
-    java: (title) => `// ${title}\nimport java.util.*;\n\nclass Solution {\n    public void solve() {\n        \n    }\n}`,
-    cpp: (title) => `// ${title}\n#include <bits/stdc++.h>\nusing namespace std;\n\nclass Solution {\npublic:\n    void solve() {\n        \n    }\n};`,
-    c: (title) => `// ${title}\n#include <stdio.h>\n#include <stdlib.h>\n\nvoid solution() {\n    \n}`,
-    go: (title) => `// ${title}\npackage main\n\nimport "fmt"\n\nfunc solution() {\n    \n}\n\nfunc main() {\n    fmt.Println("Hello")\n}`,
+    javascript: (title) => `/**\n * ${title}\n */\nfunction solution() {\n    \n}\n\nsolution();`,
+    python: (title) => `# ${title}\n\ndef solution():\n    pass\n\nsolution()`,
+    java: (title) => `// ${title}\nimport java.util.*;\n\nclass Solution {\n    public static void main(String[] args) {\n        \n    }\n}`,
+    cpp: (title) => `// ${title}\n#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    \n    return 0;\n}`,
+    c: (title) => `// ${title}\n#include <stdio.h>\n#include <stdlib.h>\n\nint main() {\n    \n    return 0;\n}`,
+    go: (title) => `// ${title}\npackage main\n\nimport "fmt"\n\nfunc solution() {\n    \n}\n\nfunc main() {\n    solution();\n}`,
     rust: (title) => `// ${title}\nfn solution() {\n    \n}\n\nfn main() {\n    solution();\n}`,
-    typescript: (title) => `// ${title}\n\nfunction solution(): void {\n    \n}`,
+    typescript: (title) => `// ${title}\n\nfunction solution(): void {\n    \n}\n\nsolution();`,
 };
 
 const DEFAULT_PROBLEM = {
