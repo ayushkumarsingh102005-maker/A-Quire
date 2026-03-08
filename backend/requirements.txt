@@ -1,5 +1,6 @@
 fastapi==0.135.1
 uvicorn==0.41.0
+aws-xray-sdk==2.14.0
 starlette==0.52.1
 pydantic==2.12.5
 pydantic_core==2.41.5
