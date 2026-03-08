@@ -21,6 +21,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 import io
+import httpx
 
 # ── Structured logging ─────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -150,6 +151,11 @@ class ThresholdResponse(BaseModel):
 class TopicCompleteRequest(BaseModel):
     course_id: str
     topic_id: str
+
+class ExecuteRequest(BaseModel):
+    language: str = Field(max_length=50)
+    version: str = Field(max_length=20)
+    code: str = Field(max_length=50_000)
 
 class StudentProfilePayload(BaseModel):
     model_config = ConfigDict(extra="allow")  # Pass all fields through to DynamoDB
@@ -300,6 +306,37 @@ async def voice_to_text(
     except Exception as e:
         logger.exception("Unhandled error in /api/transcribe")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.post("/api/execute")
+async def execute_code(
+    req: ExecuteRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Proxy code execution to Piston — runs server-side to avoid CORS/auth issues."""
+    # Allowlist of supported languages to prevent misuse
+    ALLOWED_LANGUAGES = {"javascript", "python", "java", "c++", "c", "go", "rust", "typescript"}
+    if req.language not in ALLOWED_LANGUAGES:
+        raise HTTPException(status_code=400, detail=f"Unsupported language: {req.language}")
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                "https://emkc.org/api/v2/piston/execute",
+                json={
+                    "language": req.language,
+                    "version": req.version,
+                    "files": [{"content": req.code}],
+                },
+                headers={"Content-Type": "application/json"},
+            )
+            resp.raise_for_status()
+            return resp.json()
+    except httpx.HTTPStatusError as e:
+        logger.warning("Piston returned %s", e.response.status_code)
+        raise HTTPException(status_code=502, detail="Execution engine error")
+    except httpx.RequestError as e:
+        logger.warning("Piston unreachable: %s", e)
+        raise HTTPException(status_code=503, detail="Execution engine unreachable")
 
 
 @app.post("/api/progress/complete")

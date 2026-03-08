@@ -156,3 +156,7 @@ export const sendMilestoneEmail = (trackTitle) =>
 // ── Progress: mark a topic complete ─────────────────────────────────────────
 export const markTopicComplete = (courseId, topicId) =>
   _post("/api/progress/complete", { course_id: courseId, topic_id: topicId });
+
+// ── Code execution (proxied through backend to avoid CORS) ──────────────────
+export const executeCode = (language, version, code) =>
+  _post("/api/execute", { language, version, code });

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Play, CheckCircle, Video, BookOpen, MessageSquare, Code, Terminal, ChevronLeft, Loader } from "lucide-react";
 import Editor from "@monaco-editor/react";
 import { ROADMAP } from "../data/roadmap";
-import { sendGazeEvent, synthesizeSpeech, sessionStart, markTopicComplete } from "../api/index";
+import { sendGazeEvent, synthesizeSpeech, sessionStart, markTopicComplete, executeCode } from "../api/index";
 import html2canvas from "html2canvas";
 import { GazeTracker } from "../utils/GazeTracker";
 
@@ -490,17 +490,7 @@ export default function UnifiedLearning() {
         setConsoleOutput("Running...");
         const pistonLang = PISTON_LANG_MAP[language] || PISTON_LANG_MAP.javascript;
         try {
-            const res = await fetch("https://emkc.org/api/v2/piston/execute", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    language: pistonLang.language,
-                    version: pistonLang.version,
-                    files: [{ content: safeCode }],
-                }),
-            });
-            if (!res.ok) throw new Error(`Execution engine returned ${res.status}`);
-            const data = await res.json();
+            const data = await executeCode(pistonLang.language, pistonLang.version, safeCode);
             const stdout = data.run?.stdout || "";
             const stderr = data.run?.stderr || "";
             const output = stdout + (stderr ? `\n[stderr]\n${stderr}` : "");
