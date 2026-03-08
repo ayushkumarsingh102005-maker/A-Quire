@@ -485,18 +485,51 @@ export default function UnifiedLearning() {
         typescript: { language: "typescript", version: "5.0.3"   },
     };
 
+    // Wandbox compiler map — fallback when backend proxy isn't available yet
+    const WANDBOX_COMPILER_MAP = {
+        javascript: "nodejs-head",
+        python:     "cpython-3.12.5",
+        java:       "openjdk-22",
+        cpp:        "gcc-head",
+        c:          "gcc-c-head",
+        go:         "go-head",
+        rust:       "rust-head",
+        typescript: "typescript-5.5.3",
+    };
+
+    const runViaWandbox = async () => {
+        const compiler = WANDBOX_COMPILER_MAP[language] || "nodejs-head";
+        const resp = await fetch("https://wandbox.org/api/compile.json", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code: safeCode, compiler }),
+        });
+        if (!resp.ok) throw new Error(`Wandbox returned ${resp.status}`);
+        const data = await resp.json();
+        const out = (data.program_output || "") + (data.program_error ? `\n[stderr]\n${data.program_error}` : "");
+        const compileErr = data.compiler_error || "";
+        return (compileErr ? `[compile error]\n${compileErr}\n` : "") + out;
+    };
+
     const runCode = async () => {
         setIsRunning(true);
         setConsoleOutput("Running...");
         const pistonLang = PISTON_LANG_MAP[language] || PISTON_LANG_MAP.javascript;
         try {
+            // Try backend proxy first (avoids CORS/auth issues with Piston)
             const data = await executeCode(pistonLang.language, pistonLang.version, safeCode);
             const stdout = data.run?.stdout || "";
             const stderr = data.run?.stderr || "";
             const output = stdout + (stderr ? `\n[stderr]\n${stderr}` : "");
             setConsoleOutput(output.trim() || "(no output)");
-        } catch (e) {
-            setConsoleOutput(`Error: ${e.message || "Could not connect to execution engine."}`);
+        } catch (backendErr) {
+            // Backend proxy not available (404 during deployment) — use Wandbox
+            try {
+                const output = await runViaWandbox();
+                setConsoleOutput(output.trim() || "(no output)");
+            } catch (e) {
+                setConsoleOutput(`Error: ${e.message || "Could not connect to execution engine."}`);
+            }
         } finally {
             setIsRunning(false);
         }
