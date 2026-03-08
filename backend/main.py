@@ -156,29 +156,17 @@ class ExecuteRequest(BaseModel):
     language: str = Field(max_length=50)
     code: str = Field(max_length=50_000)
 
-# Cache of Piston runtimes: {language -> latest_version}
-_piston_runtimes: dict[str, str] = {}
-
-async def _get_piston_version(language: str) -> str:
-    """Return the latest available Piston version for a language, with caching."""
-    global _piston_runtimes
-    if language not in _piston_runtimes:
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.get("https://emkc.org/api/v2/piston/runtimes")
-                resp.raise_for_status()
-                runtimes = resp.json()
-                # Build map: language -> highest version (last entry per language is latest)
-                mapping = {}
-                for rt in runtimes:
-                    mapping[rt["language"]] = rt["version"]
-                    # also map aliases
-                    for alias in rt.get("aliases", []):
-                        mapping[alias] = rt["version"]
-                _piston_runtimes = mapping
-        except Exception as e:
-            logger.warning("Could not fetch Piston runtimes: %s", e)
-    return _piston_runtimes.get(language, "*")
+# JDoodle language map: our language id -> (jdoodle language, versionIndex)
+_JDOODLE_LANG_MAP = {
+    "javascript": ("nodejs",      "4"),
+    "python":     ("python3",     "4"),
+    "java":       ("java",        "4"),
+    "c++":        ("cpp17",       "1"),
+    "c":          ("c",           "5"),
+    "go":         ("go",          "4"),
+    "rust":       ("rust",        "4"),
+    "typescript": ("typescript",  "4"),
+}
 
 class StudentProfilePayload(BaseModel):
     model_config = ConfigDict(extra="allow")  # Pass all fields through to DynamoDB
@@ -336,30 +324,45 @@ async def execute_code(
     req: ExecuteRequest,
     current_user: dict = Depends(get_current_user)
 ):
-    """Proxy code execution to Piston — runs server-side to avoid CORS/auth issues."""
-    # Allowlist of supported languages to prevent misuse
+    """Proxy code execution to JDoodle — runs server-side to avoid CORS/auth issues."""
     ALLOWED_LANGUAGES = {"javascript", "python", "java", "c++", "c", "go", "rust", "typescript"}
     if req.language not in ALLOWED_LANGUAGES:
         raise HTTPException(status_code=400, detail=f"Unsupported language: {req.language}")
-    version = await _get_piston_version(req.language)
+
+    client_id     = os.getenv("JDOODLE_CLIENT_ID", "")
+    client_secret = os.getenv("JDOODLE_CLIENT_SECRET", "")
+    if not client_id or not client_secret:
+        raise HTTPException(status_code=503, detail="Code execution not configured (JDOODLE credentials missing)")
+
+    jd_lang, jd_ver = _JDOODLE_LANG_MAP.get(req.language, ("python3", "4"))
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
-                "https://emkc.org/api/v2/piston/execute",
+                "https://api.jdoodle.com/v1/execute",
                 json={
-                    "language": req.language,
-                    "version": version,
-                    "files": [{"content": req.code}],
+                    "clientId":     client_id,
+                    "clientSecret": client_secret,
+                    "script":       req.code,
+                    "language":     jd_lang,
+                    "versionIndex": jd_ver,
+                    "stdin":        "",
                 },
-                headers={"Content-Type": "application/json"},
             )
             resp.raise_for_status()
-            return resp.json()
+            data = resp.json()
+            # Normalise to a piston-like response shape the frontend already handles
+            return {
+                "run": {
+                    "stdout": data.get("output", ""),
+                    "stderr": "",
+                    "code":   data.get("statusCode", 200),
+                }
+            }
     except httpx.HTTPStatusError as e:
-        logger.warning("Piston returned %s: %s", e.response.status_code, e.response.text)
+        logger.warning("JDoodle returned %s: %s", e.response.status_code, e.response.text)
         raise HTTPException(status_code=502, detail=f"Execution engine error: {e.response.status_code}")
     except httpx.RequestError as e:
-        logger.warning("Piston unreachable: %s", e)
+        logger.warning("JDoodle unreachable: %s", e)
         raise HTTPException(status_code=503, detail="Execution engine unreachable")
 
 
