@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { ROADMAP } from "../data/roadmap";
-import { fetchProfile, fetchChecklist, fetchTracks, saveChecklist } from "../api";
+import { fetchProfile, fetchChecklist, fetchTracks, saveChecklist, saveProfile } from "../api";
 
 const YELLOW = "#FFD700";
 const ORANGE = "#FF6A00";
@@ -419,51 +419,174 @@ function ViewSection({ children }) {
 }
 
 // ── PERSONAL DETAILS VIEW ──
-function PersonalDetails({ account }) {
+function PersonalDetails({ account, onProfileChange }) {
   const catLabel = { school: "School Student", college: "College Student", fresher: "Fresher / Just Graduated", working: "Working Professional" };
   const p = account.profileExtra || {};
   const personal = account.personal || {};
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({});
+
+  const openEdit = () => {
+    setForm({
+      name: account.name || "",
+      phone: account.phone || "",
+      dob: p.dob || "",
+      currentAddress: p.currentAddress || "",
+      permanentAddress: p.permanentAddress || "",
+      interests: personal.interests || "",
+      hobbies: personal.hobbies || "",
+      aim: personal.aim || "",
+      about: personal.about || "",
+    });
+    setEditing(true);
+  };
+
+  const f = k => e => setForm(prev => ({ ...prev, [k]: e.target.value }));
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const updated = {
+        ...account,
+        name: form.name.trim() || account.name,
+        phone: form.phone.trim(),
+        profileExtra: { ...p, dob: form.dob, currentAddress: form.currentAddress, permanentAddress: form.permanentAddress },
+        personal: { ...personal, interests: form.interests, hobbies: form.hobbies, aim: form.aim, about: form.about },
+      };
+      await saveProfile(updated);
+      onProfileChange(updated);
+      setEditing(false);
+    } catch (e) {
+      console.error("Failed to save profile:", e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inputStyle = {
+    background: "#131313", border: "1px solid #222", borderRadius: 8,
+    padding: "0.65rem 0.9rem", color: "#F0F0F0",
+    fontFamily: "'DM Sans', sans-serif", fontSize: "0.88rem", outline: "none", width: "100%",
+  };
+  const labelStyle = { fontSize: "0.72rem", fontWeight: 700, color: "#555", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "0.3rem", display: "block" };
+  const fieldWrap = { display: "flex", flexDirection: "column" };
+
   return (
     <div style={{ animation: "fadeUp 0.4s ease both" }}>
-      <div style={{ marginBottom: "1.6rem" }}>
-        <p style={{ fontSize: "0.72rem", color: DIM, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 600, marginBottom: "0.25rem" }}>Profile</p>
-        <h1 style={{ fontFamily: "'Times New Roman', serif", fontSize: "1.7rem", fontWeight: 800, color: "#F0F0F0" }}>Personal Details</h1>
-        <p style={{ fontSize: "0.85rem", color: DIM, marginTop: "0.2rem" }}>Your personal information and profile.</p>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "1.6rem" }}>
+        <div>
+          <p style={{ fontSize: "0.72rem", color: DIM, letterSpacing: "0.1em", textTransform: "uppercase", fontWeight: 600, marginBottom: "0.25rem" }}>Profile</p>
+          <h1 style={{ fontFamily: "'Times New Roman', serif", fontSize: "1.7rem", fontWeight: 800, color: "#F0F0F0" }}>Personal Details</h1>
+          <p style={{ fontSize: "0.85rem", color: DIM, marginTop: "0.2rem" }}>Your personal information and profile.</p>
+        </div>
+        {!editing && (
+          <button onClick={openEdit} style={{
+            display: "flex", alignItems: "center", gap: "0.4rem",
+            background: "#111", border: "1px solid #252525", borderRadius: 8,
+            padding: "0.5rem 1rem", color: "#C0C0C0", fontSize: "0.8rem", cursor: "pointer",
+            fontFamily: "'DM Sans', sans-serif", fontWeight: 600, marginTop: "0.3rem", flexShrink: 0,
+          }}>
+            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Edit Profile
+          </button>
+        )}
       </div>
-      <Card>
-        {/* Profile header */}
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.4rem", paddingBottom: "1.2rem", borderBottom: "1px solid #1A1A1A" }}>
-          <div style={{
-            width: 52, height: 52, borderRadius: "50%", flexShrink: 0,
-            background: `linear-gradient(135deg, ${YELLOW}, ${ORANGE})`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "1.3rem", fontWeight: 900, color: "#0D0D0D", fontFamily: "'Times New Roman', serif",
-          }}>{(account.name || "?")[0].toUpperCase()}</div>
-          <div>
-            <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "#F0F0F0", fontFamily: "'Times New Roman', serif" }}>{account.name || "—"}</div>
-            <div style={{ fontSize: "0.73rem", color: DIM, marginTop: "0.08rem" }}>@{account.username || "—"}</div>
-            <span style={{
-              display: "inline-block", marginTop: "0.3rem",
-              fontSize: "0.62rem", fontWeight: 700, color: YELLOW,
-              background: "rgba(255,215,0,0.07)", border: "1px solid rgba(255,215,0,0.2)",
-              padding: "0.13rem 0.5rem", borderRadius: 100,
-            }}>{catLabel[account.category] || account.category || "Student"}</span>
-          </div>
-        </div>
 
-        <ViewSection>Personal Information</ViewSection>
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          <DisplayRow label="Full Name" value={account.name} />
-          <DisplayRow label="Username" value={account.username ? `@${account.username}` : null} />
-          <DisplayRow label="Date of Birth" value={p.dob} />
-          <DisplayRow label="Email Address" value={account.email} />
-          <DisplayRow label="Phone Number" value={account.phone ? `+91 ${account.phone}` : null} />
-          <DisplayRow label="Interests" value={personal.interests} />
-          <DisplayRow label="Hobbies" value={personal.hobbies} />
-          <DisplayRow label="Current Address" value={p.currentAddress} />
-          <DisplayRow label="Permanent Address" value={p.permanentAddress || p.currentAddress} />
-        </div>
-      </Card>
+      {editing ? (
+        <Card>
+          <div style={{ marginBottom: "1.2rem", paddingBottom: "1rem", borderBottom: "1px solid #1A1A1A", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontFamily: "'Times New Roman', serif", fontWeight: 700, color: "#F0F0F0", fontSize: "1rem" }}>Edit Personal Details</span>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button onClick={() => setEditing(false)} style={{
+                background: "transparent", border: "1px solid #282828", borderRadius: 7,
+                padding: "0.42rem 0.9rem", color: "#666", fontSize: "0.8rem", cursor: "pointer",
+              }}>Cancel</button>
+              <button onClick={handleSave} disabled={saving} style={{
+                background: `linear-gradient(135deg, ${YELLOW}, ${ORANGE})`, border: "none", borderRadius: 7,
+                padding: "0.42rem 1.1rem", color: "#0D0D0D", fontWeight: 700, fontSize: "0.8rem",
+                cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1,
+              }}>{saving ? "Saving…" : "Save Changes"}</button>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+            <div style={fieldWrap}>
+              <label style={labelStyle}>Full Name</label>
+              <input style={inputStyle} value={form.name} onChange={f("name")} placeholder="Your full name" />
+            </div>
+            <div style={fieldWrap}>
+              <label style={labelStyle}>Phone Number</label>
+              <input style={inputStyle} value={form.phone} onChange={f("phone")} placeholder="10-digit mobile number" />
+            </div>
+            <div style={fieldWrap}>
+              <label style={labelStyle}>Date of Birth</label>
+              <input style={inputStyle} type="date" value={form.dob} onChange={f("dob")} />
+            </div>
+            <div style={fieldWrap}>
+              <label style={labelStyle}>Interests</label>
+              <input style={inputStyle} value={form.interests} onChange={f("interests")} placeholder="e.g. Competitive programming, ML" />
+            </div>
+            <div style={{ ...fieldWrap, gridColumn: "1 / -1" }}>
+              <label style={labelStyle}>Current Address</label>
+              <textarea style={{ ...inputStyle, resize: "vertical" }} rows={2} value={form.currentAddress} onChange={f("currentAddress")} placeholder="House / Flat No., Street, Area, City, State, PIN" />
+            </div>
+            <div style={{ ...fieldWrap, gridColumn: "1 / -1" }}>
+              <label style={labelStyle}>Permanent Address</label>
+              <textarea style={{ ...inputStyle, resize: "vertical" }} rows={2} value={form.permanentAddress} onChange={f("permanentAddress")} placeholder="Leave blank if same as current" />
+            </div>
+            <div style={fieldWrap}>
+              <label style={labelStyle}>Hobbies</label>
+              <input style={inputStyle} value={form.hobbies} onChange={f("hobbies")} placeholder="e.g. Reading, Gaming, Music" />
+            </div>
+            <div style={fieldWrap}>
+              <label style={labelStyle}>Career Aim</label>
+              <input style={inputStyle} value={form.aim} onChange={f("aim")} placeholder="e.g. SDE at a product company" />
+            </div>
+            <div style={{ ...fieldWrap, gridColumn: "1 / -1" }}>
+              <label style={labelStyle}>About Me</label>
+              <textarea style={{ ...inputStyle, resize: "vertical" }} rows={3} value={form.about} onChange={f("about")} placeholder="A short bio about yourself" />
+            </div>
+          </div>
+        </Card>
+      ) : (
+        <Card>
+          {/* Profile header */}
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.4rem", paddingBottom: "1.2rem", borderBottom: "1px solid #1A1A1A" }}>
+            <div style={{
+              width: 52, height: 52, borderRadius: "50%", flexShrink: 0,
+              background: `linear-gradient(135deg, ${YELLOW}, ${ORANGE})`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: "1.3rem", fontWeight: 900, color: "#0D0D0D", fontFamily: "'Times New Roman', serif",
+            }}>{(account.name || "?")[0].toUpperCase()}</div>
+            <div>
+              <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "#F0F0F0", fontFamily: "'Times New Roman', serif" }}>{account.name || "—"}</div>
+              <div style={{ fontSize: "0.73rem", color: DIM, marginTop: "0.08rem" }}>@{account.username || "—"}</div>
+              <span style={{
+                display: "inline-block", marginTop: "0.3rem",
+                fontSize: "0.62rem", fontWeight: 700, color: YELLOW,
+                background: "rgba(255,215,0,0.07)", border: "1px solid rgba(255,215,0,0.2)",
+                padding: "0.13rem 0.5rem", borderRadius: 100,
+              }}>{catLabel[account.category] || account.category || "Student"}</span>
+            </div>
+          </div>
+
+          <ViewSection>Personal Information</ViewSection>
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <DisplayRow label="Full Name" value={account.name} />
+            <DisplayRow label="Username" value={account.username ? `@${account.username}` : null} />
+            <DisplayRow label="Date of Birth" value={p.dob} />
+            <DisplayRow label="Email Address" value={account.email} />
+            <DisplayRow label="Phone Number" value={account.phone ? `+91 ${account.phone}` : null} />
+            <DisplayRow label="Interests" value={personal.interests} />
+            <DisplayRow label="Hobbies" value={personal.hobbies} />
+            <DisplayRow label="Career Aim" value={personal.aim} />
+            <DisplayRow label="About Me" value={personal.about} />
+            <DisplayRow label="Current Address" value={p.currentAddress} />
+            <DisplayRow label="Permanent Address" value={p.permanentAddress || p.currentAddress} />
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
@@ -996,8 +1119,8 @@ export default function Dashboard() {
     // Then fetch from DynamoDB (authoritative) and update state + cache
     fetchProfile().then(profile => {
       if (profile && Object.keys(profile).length > 0) {
-        // Always merge Cognito name as fallback so it's never blank
-        const merged = { name: currentUser.name || currentUser.email || "", ...profile };
+        // DynamoDB profile is authoritative; fall back to Cognito name only if profile has none
+        const merged = { ...profile, name: profile.name || currentUser.name || currentUser.email || "" };
         setAccount(merged);
         localStorage.setItem(`aquire_profile_${uid}`, JSON.stringify({ profile: merged, onboardingData: {} }));
       } else {
@@ -1232,7 +1355,7 @@ export default function Dashboard() {
           )}
 
           {/* ── PROFILE VIEWS ── */}
-          {activeNav === "profile-personal" && <PersonalDetails account={account} />}
+          {activeNav === "profile-personal" && <PersonalDetails account={account} onProfileChange={updated => { setAccount(updated); localStorage.setItem(`aquire_profile_${currentUser?.uid}`, JSON.stringify({ profile: updated, onboardingData: {} })); }} />}
           {activeNav === "profile-academic" && <AcademicDetails account={account} />}
           {activeNav === "profile-goals" && <GoalsView account={account} />}
 
