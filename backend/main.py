@@ -156,16 +156,16 @@ class ExecuteRequest(BaseModel):
     language: str = Field(max_length=50)
     code: str = Field(max_length=50_000)
 
-# JDoodle language map: our language id -> (jdoodle language, versionIndex)
-_JDOODLE_LANG_MAP = {
-    "javascript": ("nodejs",      "4"),
-    "python":     ("python3",     "4"),
-    "java":       ("java",        "4"),
-    "c++":        ("cpp17",       "1"),
-    "c":          ("c",           "5"),
-    "go":         ("go",          "4"),
-    "rust":       ("rust",        "4"),
-    "typescript": ("typescript",  "4"),
+# Godbolt Compiler Explorer: our language id -> (compiler_id, godbolt_lang)
+_GODBOLT_COMPILER_MAP = {
+    "javascript": ("v8trunk",   "javascript"),
+    "python":     ("python312", "python"),
+    "java":       ("java2200",  "java"),
+    "c++":        ("g141",      "c++"),
+    "c":          ("g141",      "c"),
+    "go":         ("gl1260",    "go"),
+    "rust":       ("nightly",   "rust"),
+    "typescript": ("v8trunk",   "javascript"),  # TS transpiled to JS on frontend
 }
 
 class StudentProfilePayload(BaseModel):
@@ -324,45 +324,47 @@ async def execute_code(
     req: ExecuteRequest,
     current_user: dict = Depends(get_current_user)
 ):
-    """Proxy code execution to JDoodle — runs server-side to avoid CORS/auth issues."""
+    """Proxy code execution to Godbolt Compiler Explorer — no auth required."""
     ALLOWED_LANGUAGES = {"javascript", "python", "java", "c++", "c", "go", "rust", "typescript"}
     if req.language not in ALLOWED_LANGUAGES:
         raise HTTPException(status_code=400, detail=f"Unsupported language: {req.language}")
 
-    client_id     = os.getenv("JDOODLE_CLIENT_ID", "")
-    client_secret = os.getenv("JDOODLE_CLIENT_SECRET", "")
-    if not client_id or not client_secret:
-        raise HTTPException(status_code=503, detail="Code execution not configured (JDOODLE credentials missing)")
-
-    jd_lang, jd_ver = _JDOODLE_LANG_MAP.get(req.language, ("python3", "4"))
+    compiler_id, godbolt_lang = _GODBOLT_COMPILER_MAP.get(req.language, ("python312", "python"))
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
-                "https://api.jdoodle.com/v1/execute",
+                f"https://godbolt.org/api/compiler/{compiler_id}/compile",
                 json={
-                    "clientId":     client_id,
-                    "clientSecret": client_secret,
-                    "script":       req.code,
-                    "language":     jd_lang,
-                    "versionIndex": jd_ver,
-                    "stdin":        "",
+                    "source": req.code,
+                    "options": {
+                        "userArguments": "",
+                        "executeParameters": {"args": "", "stdin": ""},
+                        "compilerOptions": {"executorRequest": True},
+                        "filters": {"execute": True},
+                        "tools": [],
+                        "libraries": [],
+                    },
+                    "lang": godbolt_lang,
+                    "allowStoreCodeDebug": True,
                 },
+                headers={"Content-Type": "application/json", "Accept": "application/json"},
             )
             resp.raise_for_status()
             data = resp.json()
-            # Normalise to a piston-like response shape the frontend already handles
+            stdout = "\n".join(item.get("text", "") for item in data.get("stdout", []))
+            stderr = "\n".join(item.get("text", "") for item in data.get("stderr", []))
             return {
                 "run": {
-                    "stdout": data.get("output", ""),
-                    "stderr": "",
-                    "code":   data.get("statusCode", 200),
+                    "stdout": stdout,
+                    "stderr": stderr,
+                    "code":   data.get("code", 0),
                 }
             }
     except httpx.HTTPStatusError as e:
-        logger.warning("JDoodle returned %s: %s", e.response.status_code, e.response.text)
+        logger.warning("Godbolt returned %s: %s", e.response.status_code, e.response.text)
         raise HTTPException(status_code=502, detail=f"Execution engine error: {e.response.status_code}")
     except httpx.RequestError as e:
-        logger.warning("JDoodle unreachable: %s", e)
+        logger.warning("Godbolt unreachable: %s", e)
         raise HTTPException(status_code=503, detail="Execution engine unreachable")
 
 
